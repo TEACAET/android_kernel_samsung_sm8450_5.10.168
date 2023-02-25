@@ -340,6 +340,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
 	int err, balloc = 0;
 	struct tcf_exts e;
 	bool update_h = false;
+	bool update_h = false;
 
 	err = tcf_exts_init(&e, net, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
 	if (err < 0)
@@ -458,7 +459,13 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
 	}
 
 	if (cp->perfect) {
+	if (cp->perfect) {
 		r = cp->perfect + handle;
+	} else {
+		/* imperfect area is updated in-place using rcu */
+		update_h = !!tcindex_lookup(cp, handle);
+		r = &new_filter_result;
+	}
 	} else {
 		/* imperfect area is updated in-place using rcu */
 		update_h = !!tcindex_lookup(cp, handle);
