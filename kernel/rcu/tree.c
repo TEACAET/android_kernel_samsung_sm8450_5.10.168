@@ -975,6 +975,7 @@ void __rcu_irq_enter_check_tick(void)
 	}
 	raw_spin_unlock_rcu_node(rdp->mynode);
 }
+NOKPROBE_SYMBOL(__rcu_irq_enter_check_tick);
 #endif /* CONFIG_NO_HZ_FULL */
 
 /**
@@ -3377,23 +3378,11 @@ need_wait_for_krwp_work(struct kfree_rcu_cpu_work *krwp)
 	return !!krwp->head_free;
 }
 
-static void
-schedule_delayed_monitor_work(struct kfree_rcu_cpu *krcp)
-{
-	long delay, delay_left;
-
-	delay = READ_ONCE(krcp->count) >= KVFREE_BULK_MAX_ENTR ? 1:KFREE_DRAIN_JIFFIES;
-	if (delayed_work_pending(&krcp->monitor_work)) {
-		delay_left = krcp->monitor_work.timer.expires - jiffies;
-		if (delay < delay_left)
-			mod_delayed_work(system_wq, &krcp->monitor_work, delay);
-		return;
-	}
-	queue_delayed_work(system_wq, &krcp->monitor_work, delay);
-}
-
 /*
- * This function is invoked after the KFREE_DRAIN_JIFFIES timeout.
+ * Schedule the kfree batch RCU work to run in workqueue context after a GP.
+ *
+ * This function is invoked by kfree_rcu_monitor() when the KFREE_DRAIN_JIFFIES
+ * timeout has been reached.
  */
 static void kfree_rcu_monitor(struct work_struct *work)
 {
@@ -3408,13 +3397,16 @@ static void kfree_rcu_monitor(struct work_struct *work)
 	for (i = 0; i < KFREE_N_BATCHES; i++) {
 		struct kfree_rcu_cpu_work *krwp = &(krcp->krw_arr[i]);
 
-		// Try to detach bulk_head or head and attach it, only when
-		// all channels are free.  Any channel is not free means at krwp
-		// there is on-going rcu work to handle krwp's free business.
-		if (need_wait_for_krwp_work(krwp))
-			continue;
-
-		if (need_offload_krc(krcp)) {
+		/*
+		 * Try to detach bkvhead or head and attach it over any
+		 * available corresponding free channel. It can be that
+		 * a previous RCU batch is in progress, it means that
+		 * immediately to queue another one is not possible so
+		 * return false to tell caller to retry.
+		 */
+		if ((krcp->bkvhead[0] && !krwp->bkvhead_free[0]) ||
+			(krcp->bkvhead[1] && !krwp->bkvhead_free[1]) ||
+				(krcp->head && !krwp->head_free)) {
 			// Channel 1 corresponds to SLAB ptrs.
 			// Channel 2 corresponds to vmalloc ptrs.
 			for (j = 0; j < FREE_N_CHANNELS; j++) {
@@ -3440,17 +3432,47 @@ static void kfree_rcu_monitor(struct work_struct *work)
 			// other.
 			queue_rcu_work(system_wq, &krwp->rcu_work);
 		}
+
+		// Repeat if any "free" corresponding channel is still busy.
+		if (krcp->bkvhead[0] || krcp->bkvhead[1] || krcp->head)
+			repeat = true;
 	}
 
-	raw_spin_unlock_irqrestore(&krcp->lock, flags);
+	return !repeat;
+}
 
-	// If there is nothing to detach, it means that our job is
-	// successfully done here. In case of having at least one
-	// of the channels that is still busy we should rearm the
-	// work to repeat an attempt. Because previous batches are
-	// still in progress.
-	if (need_offload_krc(krcp))
-		schedule_delayed_monitor_work(krcp);
+static inline void kfree_rcu_drain_unlock(struct kfree_rcu_cpu *krcp,
+					  unsigned long flags)
+{
+	// Attempt to start a new batch.
+	krcp->monitor_todo = false;
+	if (queue_kfree_rcu_work(krcp)) {
+		// Success! Our job is done here.
+		raw_spin_unlock_irqrestore(&krcp->lock, flags);
+		return;
+	}
+
+	// Previous RCU batch still in progress, try again later.
+	krcp->monitor_todo = true;
+	schedule_delayed_work(&krcp->monitor_work, KFREE_DRAIN_JIFFIES);
+	raw_spin_unlock_irqrestore(&krcp->lock, flags);
+}
+
+/*
+ * This function is invoked after the KFREE_DRAIN_JIFFIES timeout.
+ * It invokes kfree_rcu_drain_unlock() to attempt to start another batch.
+ */
+static void kfree_rcu_monitor(struct work_struct *work)
+{
+	unsigned long flags;
+	struct kfree_rcu_cpu *krcp = container_of(work, struct kfree_rcu_cpu,
+						 monitor_work.work);
+
+	raw_spin_lock_irqsave(&krcp->lock, flags);
+	if (krcp->monitor_todo)
+		kfree_rcu_drain_unlock(krcp, flags);
+	else
+		raw_spin_unlock_irqrestore(&krcp->lock, flags);
 }
 
 static enum hrtimer_restart
