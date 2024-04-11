@@ -504,7 +504,7 @@ CONFIG_RANDOMIZE_BASE=y
 #
 # Boot options
 #
-CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure cgroup.memory=nokmem"
+CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure cgroup.memory=nokmem noirqdebug"
 # CONFIG_CMDLINE_FROM_BOOTLOADER is not set
 CONFIG_CMDLINE_EXTEND=y
 # CONFIG_CMDLINE_FORCE is not set
@@ -6610,11 +6610,11 @@ CONFIG_DEBUG_BUGVERBOSE=y
 #
 # Compile-time checks and compiler options
 #
-CONFIG_DEBUG_INFO=y
+# CONFIG_DEBUG_INFO is not set
 # CONFIG_DEBUG_INFO_REDUCED is not set
 # CONFIG_DEBUG_INFO_COMPRESSED is not set
 # CONFIG_DEBUG_INFO_SPLIT is not set
-CONFIG_DEBUG_INFO_DWARF4=y
+# ONFIG_DEBUG_INFO_DWARF4 is not set
 # CONFIG_DEBUG_INFO_BTF is not set
 # CONFIG_GDB_SCRIPTS is not set
 # CONFIG_ENABLE_MUST_CHECK is not set
