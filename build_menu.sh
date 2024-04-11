@@ -95,7 +95,11 @@ build_kernel(){
   variant
   echo "${BGREEN}***** Compiling kernel *****${STD}"
 #curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-
+sleep 1
+cp ./arch/arm64/configs/russel5_waipio-gki_defconfig ./arch/arm64/configs/russel5_defconfig
+sleep 1
+cp ./arch/arm64/configs/russel5_waipio-gki_defconfig ./arch/arm64/configs/waipio-gki_defconfig
+sleep 1
   [ ! -d "$OUT_DIR" ] && mkdir $OUT_DIR
   make -j$(nproc) -C $(pwd) O=$(pwd)/out ${VARIANT}_defconfig
   make -j$(nproc) -C $(pwd) O=$(pwd)/out
@@ -149,6 +153,9 @@ gas
 build_tools
 
 # Show menu
+# config
+
+
 show_menus(){
   clear
   echo "${ON_BLUE}bklyn-KERNEL-BUILD menu $menu_version${STD}"
