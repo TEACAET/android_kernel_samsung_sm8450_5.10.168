@@ -94,7 +94,7 @@ clean(){
 build_kernel(){
   variant
   echo "${BGREEN}***** Compiling kernel *****${STD}"
-curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+#curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 sleep 1
 cp ./arch/arm64/configs/russel5_waipio-gki_defconfig ./arch/arm64/configs/russel5_defconfig
 sleep 1
