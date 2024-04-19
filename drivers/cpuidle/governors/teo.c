@@ -564,7 +564,7 @@ end:
 		 */
 		if (idx > idx0 &&
 		    drv->states[idx].target_residency_ns > delta_tick)
-			idx = teo_find_shallower_state(drv, dev, idx, delta_tick);
+			idx = teo_find_shallower_state(drv, dev, idx, delta_tick , false);
 	}
 
 	/*
