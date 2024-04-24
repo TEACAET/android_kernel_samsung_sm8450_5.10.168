@@ -2506,10 +2506,10 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 		{ "system-background",	"0-3" },
 		{ "camera-background",	"0-3" },
 		{ "audio-app",		"0,1,2,3" },
-		{ "foreground",		"2,3,4,5,7," },
+		{ "foreground",		"0,1,2,3,4,5,7" },
 		{ "camera-daemon",	"0-7" },
-		{ "top-app",		"2-7" },
-		{ "ui",		        "5-7" },
+		{ "top-app",		"0-7" },
+		{ "ui",		        "4-7" },
 	};
 	struct cpuset *cs = css_cs(of_css(of));
 	int i;
